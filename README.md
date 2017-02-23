@@ -12,4 +12,8 @@ showed that the -Thunderbolt Bridge- was always listed as 'Active' and thus
 Wi-Fi was disabled by the script.  The easiest modification was to simply 
 avoid adding the Thunderbolt Bridge into the list/array of Wired adapters.
 
+We setup a Launch Daemon to run this script about once a minute to avoid
+staff inadvertently making a bridge between our internal wired and external 
+wireless networks.  
+
 -CTM
