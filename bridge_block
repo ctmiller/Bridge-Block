@@ -1,0 +1,105 @@
+#!/bin/bash
+#################################################
+# Script originally from the posted
+# "Air Defense" script posted awhile back on JAMF Nation
+# Revised to work on newer USB-C hardware Macs
+# Revision by Christopher Miller for 
+# ITSD-ISS of JHU-APL, Dated: 2017-02-20
+#################################################
+# Some variables to make things easier to read:
+#############################################
+PlistBuddy=/usr/libexec/PlistBuddy
+plist=/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist
+
+
+# Find the number of Interfaces
+######################################################
+# NOTE: Newer USB-C only systems keep reporting 
+# the Thunderbolt Bridge adapter as ALWAYS active
+# Thus using grep -v to avoid listing the bridge
+######################################################
+count=$(networksetup -listallhardwareports | grep Hardware | grep -v -i "Bridge"| wc -l | tr -s " ")
+echo "Found$count network interfaces"
+
+
+
+# Set Counter to Zero, Get Interface media
+#############################################
+counter=0
+while [ $counter -lt $count ] 
+do
+	interface[$counter]=`$PlistBuddy -c "Print Interfaces:$counter:SCNetworkInterfaceType" $plist` 
+	let "counter += 1"
+done
+
+
+#############################################
+# Get Real Interfaces
+#############################################
+# reset counter
+#############################################
+counter=0
+
+while [ $counter -lt $count ] 
+do
+		bsdname[$counter]=`$PlistBuddy -c "Print Interfaces:$counter:BSD\ Name" $plist`
+	let "counter += 1"
+done
+
+
+##########################################################################################
+#Build Airport Array ${airportArray[@]} and Ethernet Array ${ethernetArray[@]}
+##########################################################################################
+counter=0
+while [ $counter -lt $count ] 
+do
+# Check for Airport, add to array when found
+	if [[ "${interface[$counter]}" = "IEEE80211" ]]; then
+		airportArray[$counter]=${bsdname[$counter]}
+	fi
+
+# Check for Ethernet, add to array when found
+	if [[ "${interface[$counter]}" = "Ethernet" ]]; then
+		ethernetArray[$counter]=${bsdname[$counter]}
+	fi
+	let "counter += 1"
+done
+
+
+#############################################
+# Tell us what was found
+#############################################
+for i in ${ethernetArray[@]}
+do
+	echo $i is Ethernet
+done
+
+for i in ${airportArray[@]}
+do
+	echo $i is Airport
+done
+
+
+#############################################
+# Check to see if any Ethernet is connected
+# Figure out which Interface has activity
+#############################################
+for i in ${ethernetArray[@]}
+	do
+		checkActive=$(ifconfig $i | grep status | awk '{print $2}')
+		if [[ $checkActive == "active" ]]; then 
+			# Ethernet IS connected
+			echo "$i is connected...turning off Airport"
+			networksetup -setairportpower ${airportArray[@]} off
+			echo "Airport off"
+			exit 0
+		else
+			# Ethernet is NOT connected
+			echo "$i is not active"
+		fi
+		
+done
+	echo "Checked all Interfaces"
+
+# Exit the script, we'll check again later
+exit 0
