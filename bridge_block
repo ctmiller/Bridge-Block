@@ -18,7 +18,7 @@ plist=/Library/Preferences/SystemConfiguration/NetworkInterfaces.plist
 # the Thunderbolt Bridge adapter as ALWAYS active
 # Thus using grep -v to avoid listing the bridge
 ######################################################
-count=$(networksetup -listallhardwareports | grep Hardware | grep -v -i "Bridge"| wc -l | tr -s " ")
+count=$(networksetup -listallhardwareports | grep -i "Device: en" -B 1 | grep -v -i "Bridge" | grep -v -i "Bluetooth"| grep "Hardware" | grep -v -i "fw" | wc -l | tr -s " ")
 echo "Found$count network interfaces"
 
 
@@ -28,7 +28,8 @@ echo "Found$count network interfaces"
 counter=0
 while [ $counter -lt $count ] 
 do
-	interface[$counter]=`$PlistBuddy -c "Print Interfaces:$counter:SCNetworkInterfaceType" $plist` 
+	interface[$counter]=$($PlistBuddy -c "Print Interfaces:$counter:SCNetworkInterfaceType" $plist) 
+	#echo $interface[$counter]
 	let "counter += 1"
 done
 
@@ -42,24 +43,25 @@ counter=0
 
 while [ $counter -lt $count ] 
 do
-		bsdname[$counter]=`$PlistBuddy -c "Print Interfaces:$counter:BSD\ Name" $plist`
+		bsdname[$counter]=$($PlistBuddy -c "Print Interfaces:$counter:BSD\ Name" $plist)
+		echo $bsdname[$counter]
 	let "counter += 1"
 done
 
 
 ##########################################################################################
-#Build Airport Array ${airportArray[@]} and Ethernet Array ${ethernetArray[@]}
+# Build Airport Array ${airportArray[@]} and Ethernet Array ${ethernetArray[@]}
 ##########################################################################################
 counter=0
 while [ $counter -lt $count ] 
 do
 # Check for Airport, add to array when found
-	if [[ "${interface[$counter]}" = "IEEE80211" ]]; then
+	if [ "${interface[$counter]}" = "IEEE80211" ]; then
 		airportArray[$counter]=${bsdname[$counter]}
 	fi
 
 # Check for Ethernet, add to array when found
-	if [[ "${interface[$counter]}" = "Ethernet" ]]; then
+	if [ "${interface[$counter]}" = "Ethernet" ]; then
 		ethernetArray[$counter]=${bsdname[$counter]}
 	fi
 	let "counter += 1"
@@ -87,12 +89,12 @@ done
 for i in ${ethernetArray[@]}
 	do
 		checkActive=$(ifconfig $i | grep status | awk '{print $2}')
+		echo $checkActive
 		if [[ $checkActive == "active" ]]; then 
 			# Ethernet IS connected
 			echo "$i is connected...turning off Airport"
 			networksetup -setairportpower ${airportArray[@]} off
 			echo "Airport off"
-			exit 0
 		else
 			# Ethernet is NOT connected
 			echo "$i is not active"
@@ -103,3 +105,4 @@ done
 
 # Exit the script, we'll check again later
 exit 0
+
